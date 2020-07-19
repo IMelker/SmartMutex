@@ -17,27 +17,57 @@ class SmartMutex
     /*
      * Proxy object for providing access in critical section
      */
-    template<typename U, typename M>
+    template<typename U>
     struct Access
     {
-        Access(U& ref, M& mutex) : ref(ref), lg(mutex) {}
-        Access(SmartMutex<U, M> &smart) : ref(smart.value), lg(smart.mutex) {}
-
-        // TODO make read/write Access
-        U* operator->() { return &ref; }
-
+        Access(const SmartMutex &smart) : ref(smart) {
+            ref.mutex.lock();
+        }
+        ~Access() {
+            ref.mutex.unlock();
+        }
+        U* operator->() const { return const_cast<U*>(&ref.value); }
       private:
-        U& ref;
-        std::lock_guard<M> lg;
+        const SmartMutex& ref;
     };
 
-    typedef Access<T, Mutex> ScopedAccess;
+    typedef Access<T> WriteAccess;
+    typedef Access<const T> ReadAccess;
 
-    template<typename ...Args>
-    SmartMutex(Args ...args) : value(std::forward<Args...>(args...)) {
+    friend void swap(SmartMutex &lhs, SmartMutex &rhs) {
+        std::scoped_lock lock(lhs.mutex, rhs.mutex);
+        std::swap(lhs.value, rhs.value);
+    }
+  public:
+    // rule of five
+    SmartMutex(SmartMutex& other) {
+        std::scoped_lock lock(mutex, other.mutex);
+        value = other.value;
     }
 
+    SmartMutex(SmartMutex&& other) noexcept {
+        std::scoped_lock lock(mutex, other.mutex);
+        value = std::move(other.value);
+    }
+
+    SmartMutex& operator=(const SmartMutex& other) {
+        std::scoped_lock lock(mutex, other.mutex);
+        value = other.value;
+        return *this;
+    };
+
+    SmartMutex& operator=(SmartMutex&& other) noexcept {
+        std::scoped_lock lock(mutex, other.mutex);
+        value = std::move(other.value);
+        return *this;
+    };
+
     ~SmartMutex() = default;
+
+    // underlying type based constructors
+    template<typename ...Args>
+    SmartMutex(Args ...args) : value(std::forward<Args>(args)...) {
+    }
 
     SmartMutex(const T& other) {
         std::lock_guard lock(mutex);
@@ -49,9 +79,7 @@ class SmartMutex
         value(std::move(other));
     }
 
-    SmartMutex& operator=(const SmartMutex& other) = delete;
-    SmartMutex& operator=(SmartMutex&& other) noexcept = delete;
-
+    // operators
     bool operator==(SmartMutex &other) {
         std::scoped_lock lock(mutex, other.mutex);
         return value == other.value;
@@ -78,16 +106,17 @@ class SmartMutex
     }
 
     // thread safe access to inner functions
-    Access<T, Mutex> operator ->() {
-        return Access<T, Mutex>(value, mutex);
+    WriteAccess operator ->() {
+        return *this;
     }
 
-    Access<const T, Mutex> operator->() const {
-        return Access<const T, Mutex>(value, mutex);
+    // thread safe access to read only inner functions
+    ReadAccess operator->() const {
+        return *this;
     }
 
   private:
-    Mutex mutex;
+    mutable Mutex mutex;
     T value;
 };
 

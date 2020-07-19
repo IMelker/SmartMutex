@@ -4,65 +4,99 @@
 
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 #include "smart_mutex.hpp"
 
+// BasicLockable class
 class XRayMutex : public std::mutex {
   public:
     XRayMutex() : std::mutex() {}
 
     void lock() {
-        std::cout << "\t[Mutex/" << this << "] -  lock" << std::endl;
         std::mutex::lock();
+        std::cout << "\t[Mutex/" << this << "] -  lock" << std::endl;
     }
 
     void unlock() {
-        std::mutex::unlock();
         std::cout << "\t[Mutex/" << this << "] -  unlock" << std::endl;
+        std::mutex::unlock();
     }
 };
 
 int main() {
-    SmartMutex<std::string, XRayMutex> test("12");
+    using SMString = SmartMutex<std::string, XRayMutex>;
+    SMString smString("12");
 
-    // append() in critical section
-    test->append("11");
+    // append() in critical section check
+    smString->append("11");
     std::cout << std::endl;
 
-    // c_str() in critical section
-    std::cout << ">> " << test->c_str() << " EOF" << std::endl;
+    // c_str() in critical section. Temporary RAI object created here
+    std::cout << "c_str() \n" << smString->c_str() << " text under mutex because of temporary RAI object" << "\n";
     std::cout << std::endl;
 
 
-    // scope lock for multiple operations
+    // scope lock for multiple operations check
     {
-        SmartMutex<std::string, XRayMutex>::ScopedAccess sa(test);
+        SMString::WriteAccess sa(smString);
         sa->append("12");
-        std::cout << ">> " << sa->c_str() << std::endl;
+        std::cout << "c_str() " << sa->c_str() << "\n";
         sa->append("13");
-        std::cout << ">> " << sa->c_str() << std::endl;
+        std::cout << "c_str() " << sa->c_str() << "\n";
         sa->append("42");
-        std::cout << ">> " << sa->c_str() << std::endl;
+        std::cout << "c_str() " << sa->c_str() << "\n";
     }
     std::cout << std::endl;
 
-    // copy constructor
-    SmartMutex<std::string, XRayMutex> test_copy("1211121342");
-
-    if(test_copy == test) {
-        std::cout << ">> Data is equal" << std::endl;
-    }
-    std::cout << std::endl;
-    test_copy->append("11");
-    std::cout << std::endl;
-
-    if(test_copy != test) {
-        std::cout << ">> Data is not equal" << std::endl;
+    // another way to scope lock for multiple operations
+    if (SMString::WriteAccess sa(smString); !sa->empty()) {
+        sa->append("12");
+        std::cout << "c_str() " << sa->c_str() << "\n";
+        sa->append("13");
+        std::cout << "c_str() " << sa->c_str() << "\n";
+        sa->append("42");
+        std::cout << "c_str() " << sa->c_str() << "\n";
     }
     std::cout << std::endl;
 
-    std::string testStr = test_copy;
-    std::cout << testStr << std::endl;
+    // operator T check
+    std::string str = smString;
+    std::cout << str << "\n" << std::endl;
+
+    // copy constructor check
+    SMString smStringCopy(smString); // "1211121342"
+    std::cout << std::endl;
+
+    // equal check
+    if (smStringCopy == smString)
+        std::cout << ">> Data is equal" << "\n";
+    std::cout << std::endl;
+
+    // change copied value
+    smStringCopy->append("11");
+    std::cout << std::endl;
+
+    // unequal check
+    if(smStringCopy != smString)
+        std::cout << ">> Data is not equal" << "\n";
+    std::cout << std::endl;
+
+    // asign check
+    smString = smStringCopy;
+    std::cout << std::endl;
+
+    // as read only (const object)
+    if (SMString::ReadAccess ra(smString); !ra->empty()) {
+        std::cout << "c_str() " << ra->c_str() << "\n";
+        std::cout << "c_str() " << ra->c_str() << "\n";
+        std::cout << "c_str() " << ra->c_str() << "\n";
+        //ra->append("12"); // error
+    }
+    std::cout << std::endl;
+
+    // std::swap check
+    swap(smString, smStringCopy);
     std::cout << std::endl;
 }
 
