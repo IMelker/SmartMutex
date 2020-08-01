@@ -9,7 +9,8 @@
 #include "smart_mutex.hpp"
 
 // BasicLockable class
-class XRayMutex : public std::mutex {
+class XRayMutex : public std::mutex
+{
   public:
     XRayMutex() : std::mutex() {}
 
@@ -25,8 +26,11 @@ class XRayMutex : public std::mutex {
 };
 
 int main() {
-    using SMString = SmartMutex<std::string, XRayMutex>;
-    SMString smString("12");
+    using sm_string = im::smart_mutex<std::string, XRayMutex>;
+    sm_string smString("12"); // forward ctor
+    sm_string smString2(std::string("12")); // move ctor
+    auto str_test = std::string("12");
+    sm_string smString3(str_test); // ref ctor
 
     // append() in critical section check
     smString->append("11");
@@ -39,7 +43,7 @@ int main() {
 
     // scope lock for multiple operations check
     {
-        SMString::WriteAccess sa(smString);
+        sm_string::write_access sa(smString);
         sa->append("12");
         std::cout << "c_str() " << sa->c_str() << "\n";
         sa->append("13");
@@ -50,7 +54,7 @@ int main() {
     std::cout << std::endl;
 
     // another way to scope lock for multiple operations
-    if (SMString::WriteAccess sa(smString); !sa->empty()) {
+    if (sm_string::write_access sa(smString); !sa->empty()) {
         sa->append("12");
         std::cout << "c_str() " << sa->c_str() << "\n";
         sa->append("13");
@@ -65,7 +69,7 @@ int main() {
     std::cout << str << "\n" << std::endl;
 
     // copy constructor check
-    SMString smStringCopy(smString); // "1211121342"
+    sm_string smStringCopy(smString); // "1211121342"
     std::cout << std::endl;
 
     // equal check
@@ -78,7 +82,12 @@ int main() {
     std::cout << std::endl;
 
     // unequal check
-    if(smStringCopy != smString)
+    if (smStringCopy != smString)
+        std::cout << ">> Data is not equal" << "\n";
+    std::cout << std::endl;
+
+    // unequal check
+    if (smString != smStringCopy)
         std::cout << ">> Data is not equal" << "\n";
     std::cout << std::endl;
 
@@ -87,7 +96,7 @@ int main() {
     std::cout << std::endl;
 
     // as read only (const object)
-    if (SMString::ReadAccess ra(smString); !ra->empty()) {
+    if (sm_string::read_access ra(smString); !ra->empty()) {
         std::cout << "c_str() " << ra->c_str() << "\n";
         std::cout << "c_str() " << ra->c_str() << "\n";
         std::cout << "c_str() " << ra->c_str() << "\n";
@@ -96,7 +105,23 @@ int main() {
     std::cout << std::endl;
 
     // std::swap check
+    using std::swap;
     swap(smString, smStringCopy);
+    std::cout << smString->c_str() << smStringCopy->c_str() << "\n";
+    std::cout << std::endl;
+
+    // std::swap with underlying type check
+    std::string getFromMutexRight;
+    using std::swap;
+    swap(smString, getFromMutexRight);
+    std::cout << getFromMutexRight << "\n";
+    std::cout << std::endl;
+
+    // std::swap with underlying type check other order
+    std::string getFromMutexLeft;
+    using std::swap;
+    swap(getFromMutexLeft, smStringCopy);
+    std::cout << getFromMutexLeft << "\n";
     std::cout << std::endl;
 }
 
