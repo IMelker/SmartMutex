@@ -3,8 +3,6 @@ smart_mutex object wrapper with thread safety(BasicLockable) access to underlyin
 
 # TODO add SFINAE concepts like checks
 # TODO convert example to tests
-# TODO connect to CI/CD
-# TODO add doc generator with git pages
+# TODO connect to CI/CD, add doc generator with git pages
 # TODO add .clang-format
-# TODO fill readme.md
-
+# TODO format readme.md
