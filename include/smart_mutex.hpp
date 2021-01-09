@@ -32,7 +32,7 @@ class smart_mutex
     template<typename U>
     struct access
     {
-        explicit access(const smart_mutex &smart) : lg(ref.mutex), ref(smart) {
+        explicit access(const smart_mutex &smart) : ref(smart), lg(ref.mutex) {
         }
 
         /**
@@ -42,10 +42,10 @@ class smart_mutex
         U *operator->() const noexcept { return const_cast<U *>(&ref.value); }
 
       private:
-        // The internal mutex wrapper with RAII mechanism for owning a mutex.
-        std::lock_guard<Mutex> lg;
         // The internal reference to overlying smart_mutex object.
         const smart_mutex &ref;
+        // The internal mutex wrapper with RAII mechanism for owning a mutex.
+        std::lock_guard<Mutex> lg;
     };
 
     //! A type representing the write access to underlying type in critical section.
